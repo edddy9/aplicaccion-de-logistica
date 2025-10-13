@@ -1,25 +1,19 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // Importa getAuth
+// firebaseConfig.js
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-// Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI",
   authDomain: "sgt-logistica.firebaseapp.com",
   projectId: "sgt-logistica",
-  storageBucket: "sgt-logistica.appspot.com", // ✅ corregido
+  storageBucket: "sgt-logistica.appspot.com",
   messagingSenderId: "372545254861",
   appId: "1:372545254861:web:0243484eabfa73a8b38084"
 };
 
-// Inicializa la app solo una vez
-const app = initializeApp(firebaseConfig);
+// Evita inicializar dos veces
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Inicializa Firestore
-const db = getFirestore(app);
-
-// Inicializa Firebase Authentication
-const auth = getAuth(app); // Obtén la instancia de auth
-
-// Exporta db y auth
-export { db, auth };
+export const auth = getAuth(app);
+export const db = getFirestore(app);

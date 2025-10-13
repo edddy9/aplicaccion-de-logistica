@@ -1,116 +1,92 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Alert, ActivityIndicator, useColorScheme, TouchableOpacity } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { useRouter } from 'expo-router';
-import { auth } from '../firebaseConfig';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useState } from "react";
+import { View, TextInput, Button, Text, ActivityIndicator, StyleSheet } from "react-native"; // Importar ActivityIndicator
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "expo-router";
+import { auth } from "../firebaseConfig";
 
-export default function RegisterScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function Register() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false); // Nuevo estado para la carga
   const router = useRouter();
-  const colorScheme = useColorScheme();
 
   const handleRegister = async () => {
-    if (email === '' || password === '') {
-      Alert.alert('Error', 'Por favor, ingresa un correo y una contraseña.');
+    if (!email || !password) {
+      setError("Por favor ingresa email y contraseña.");
       return;
     }
-    if (password.length < 6) { // Firebase requiere un mínimo de 6 caracteres para la contraseña
-        Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
-        return;
-    }
 
-    setLoading(true);
+    setLoading(true); // Iniciar la carga
+    setError(""); // Limpiar errores previos
+
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert('Éxito', '¡Cuenta creada correctamente! Por favor, inicia sesión.');
-      router.replace('/login'); // Después del registro, redirige al usuario a la pantalla de login
-    } catch (error: any) {
-      console.error("Error al registrar usuario: ", error);
-      Alert.alert('Error', `Fallo al registrar: ${error.message}`);
+      // Si el registro es exitoso, puedes redirigir al usuario
+      router.replace("/"); // Redirige a la página principal o a donde desees
+    } catch (err: any) {
+      // Manejo de errores de Firebase
+      switch (err.code) {
+        case "auth/email-already-in-use":
+          setError("El correo electrónico ya está registrado.");
+          break;
+        case "auth/invalid-email":
+          setError("El formato del correo electrónico es inválido.");
+          break;
+        case "auth/weak-password":
+          setError("La contraseña debe tener al menos 6 caracteres.");
+          break;
+        default:
+          setError("Error al registrar: " + err.message);
+
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  console.log("Usuario creado:", userCredential.user);
+  router.replace("/");
+      }
     } finally {
-      setLoading(false);
+      setLoading(false); // Finalizar la carga
     }
   };
 
-  const isDarkMode = colorScheme === 'dark';
-  const containerBackgroundColor = isDarkMode ? '#1a1a1aff' : '#fcfcfcff';
-  const inputBorderColor = isDarkMode ? '#666666' : 'gray';
-  const inputTextColor = isDarkMode ? '#ffffff' : '#000000';
-  const inputPlaceholderColor = isDarkMode ? '#aaaaaa' : 'gray';
-  const linkTextColor = isDarkMode ? '#bb86fc' : '#007bff';
-
   return (
-    <View style={[styles.container, { backgroundColor: containerBackgroundColor }]}>
-      <ThemedText style={[styles.title, { color: inputTextColor }]} type="title">Registrarse</ThemedText>
-
+    <View style={styles.container}>
       <TextInput
-        style={[styles.input, { borderColor: inputBorderColor, color: inputTextColor }]}
-        placeholder="Correo Electrónico"
-        placeholderTextColor={inputPlaceholderColor}
+        placeholder="Email"
         value={email}
         onChangeText={setEmail}
-        keyboardType="email-address"
         autoCapitalize="none"
+        keyboardType="email-address" // Buena práctica para emails
+        style={styles.input}
       />
-
       <TextInput
-        style={[styles.input, { borderColor: inputBorderColor, color: inputTextColor }]}
-        placeholder="Contraseña (mínimo 6 caracteres)"
-        placeholderTextColor={inputPlaceholderColor}
+        placeholder="Contraseña"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        style={styles.input}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {loading ? (
-        <ActivityIndicator size="large" color={linkTextColor} />
+      {loading ? ( // Mostrar indicador de carga si está cargando
+        <ActivityIndicator size="large" style={{ marginVertical: 10 }} />
       ) : (
         <Button
-          title="Crear Cuenta"
-          onPress={handleRegister}
-          color={isDarkMode ? '#bb86fc' : '#007bff'}
+          title="Registrarse"
+          onPress={handleRegister} // ¡AQUÍ SE LLAMA LA FUNCIÓN!
         />
       )}
-
-      <TouchableOpacity
-        style={styles.linkButton}
-        onPress={() => router.replace('/login')} // Vuelve a la pantalla de login
-      >
-        <ThemedText style={[styles.linkText, { color: linkTextColor }]}>
-          ¿Ya tienes una cuenta? Inicia Sesión
-        </ThemedText>
-      </TouchableOpacity>
+      <View style={{ height: 10 }} />
+      <Button
+        title="Volver al Login"
+        onPress={() => router.back()} // Opción para volver al login
+        color="gray"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-  },
-  linkButton: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  linkText: {
-    fontSize: 16,
-  },
+  container: { flex: 1, justifyContent: "center", padding: 20 },
+  input: { borderWidth: 1, borderColor: "#ccc", padding: 10, marginBottom: 10, borderRadius: 5 },
+  error: { color: "red", marginBottom: 10 },
 });
