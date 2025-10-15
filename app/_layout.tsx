@@ -1,24 +1,34 @@
-// app/_layout.tsx (Este es tu RootLayout)
+// app/_layout.tsx
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator, Text, Button, StyleSheet } from "react-native";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { View, ActivityIndicator, Text, Button, StyleSheet, AppState } from "react-native";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-import { Stack, useRouter, Slot, useSegments } from "expo-router"; // Asegúrate de importar useSegments
+import { Stack, useRouter, useSegments } from "expo-router";
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const segments = useSegments(); // Nuevo hook para obtener los segmentos de la URL
+  const segments = useSegments();
 
-  // Función auxiliar para verificar si la ruta actual es pública (login, register)
-  const isAuthRoute = () => {
-    // Los segmentos serán ['login'] o ['register'] si estás en esas rutas.
-    // O pueden ser más complejos, por eso verificamos si el primer segmento es 'login' o 'register'
-    return segments[0] === 'login' || segments[0] === 'register';
-  };
+  // 🔒 Cerrar sesión automáticamente al salir o minimizar la app
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", async (nextState) => {
+      if (nextState === "background" || nextState === "inactive") {
+        try {
+          await signOut(auth);
+          console.log("🔒 Sesión cerrada automáticamente por seguridad");
+        } catch (error) {
+          console.error("Error al cerrar sesión:", error);
+        }
+      }
+    });
 
+    return () => subscription.remove();
+  }, []);
+
+  // 🔐 Control de autenticación
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -26,69 +36,87 @@ export default function RootLayout() {
         setUser(currentUser);
         setLoading(false);
 
-        // Control de redirección basado en la autenticación
-        const protectedRoutes = ['add-trip', 'trips/[id]']; // rutas que requieren usuario autenticado
-
-if (currentUser) {
-  // Solo redirigir al index si estamos en la raíz o en una ruta pública
-  if (!protectedRoutes.includes(segments[0]) && segments[0] !== '(tabs)') {
-    router.replace("/"); 
-  }
-
+        // Si hay usuario autenticado
+        if (currentUser) {
+          // Si está en login o register → redirige al tabs principal
+          if (isAuthRoute()) router.replace("/(tabs)");
         } else {
-          // Si NO hay usuario autenticado
-          // Y la ruta actual NO es una ruta de autenticación (login o register)
-          if (!isAuthRoute()) {
-            router.replace("/login"); // Redirige al login
-          }
+          // Si no hay usuario y no está en login/register → redirige al login
+          if (!isAuthRoute()) router.replace("/login");
         }
       },
       (err) => {
         console.error("Error verificando usuario:", err);
         setError(err.message);
         setLoading(false);
-        if (!isAuthRoute()) { // Si el error ocurre y no estamos en una ruta auth, ir al login
-          router.replace("/login");
-        }
+        if (!isAuthRoute()) router.replace("/login");
       }
     );
 
     return () => unsubscribe();
-  }, [user, segments]); // Dependencias: user para cambios de auth, segments para cambios de ruta
+  }, [segments]);
 
+  // Verifica si es login o registro
+  const isAuthRoute = () => {
+    const route = segments[0];
+    return route === "login" || route === "register";
+  };
 
+  // 🌀 Pantalla de carga
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#007bff" />
         <Text style={{ marginTop: 10 }}>Verificando sesión...</Text>
       </View>
     );
   }
 
+  // ⚠️ Pantalla de error si falla autenticación
   if (error) {
     return (
       <View style={styles.center}>
         <Text style={{ color: "red", marginBottom: 10 }}>Error: {error}</Text>
-        <Button title="Reintentar" onPress={() => {
-          setLoading(true);
-          setError(null);
-        }} />
+        <Button
+          title="Reintentar"
+          onPress={() => {
+            setLoading(true);
+            setError(null);
+          }}
+        />
       </View>
     );
   }
 
+  // ✅ Stack principal
   return (
-    <Stack>
-      {/* Oculta el header para el grupo de tabs si lo tienes definido en su propio _layout */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* Define tus pantallas de autenticación */}
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: "#007bff" },
+        headerTintColor: "#fff",
+        headerTitleAlign: "center",
+      }}
+    >
+      {/* Rutas públicas */}
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
-      {/* Añade otras pantallas que estén directamente en 'app/' si las hay,
-          como 'add-trip' o 'modal', y configura sus opciones de header */}
-      <Stack.Screen name="add-trip" options={{ presentation: 'modal', headerShown: false }} /> {/* Agregué headerShown: false */}
-      <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} /> {/* Agregué headerShown: false */}
+
+      {/* Rutas privadas */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="trips" options={{ headerShown: false }} />
+      <Stack.Screen name="gastos" options={{ headerShown: false }} /> 
+     
+      
+    
+      {/* Fuera del tabs */}
+      <Stack.Screen
+        name="add-trip"
+        options={{ title: "Agregar viaje", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="modal"
+        options={{ presentation: "modal", headerShown: false }}
+      />
     </Stack>
   );
 }

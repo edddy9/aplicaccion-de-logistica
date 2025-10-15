@@ -1,126 +1,109 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, StyleSheet, Alert, useColorScheme } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { useRouter } from 'expo-router';
-import { db, auth } from '../firebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import React, { useState } from "react";
+import { View, Button, Alert, StyleSheet, Text, TextInput } from "react-native";
+import { useRouter } from "expo-router";
+import { Picker } from "@react-native-picker/picker";
+import { db, auth } from "../firebaseConfig";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function AddTripScreen() {
-  const [name, setName] = useState('');
-  const [destination, setDestination] = useState('');
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Inicialmente 'true'
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
+  const [empresa, setEmpresa] = useState("");
   const router = useRouter();
-  const colorScheme = useColorScheme();
 
-  useEffect(() => {
-    console.log("useEffect: Suscribiendo al estado de autenticación...");
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("useEffect: Estado de autenticación cambiado. currentUser:", currentUser?.uid);
-      setUser(currentUser);
-      setLoading(false); // Una vez que se resuelve el estado de autenticación, loading debe ser false
-      console.log("useEffect: loading establecido a false.");
-    });
-    return () => {
-      unsubscribe();
-      console.log("useEffect: Desuscribiendo del estado de autenticación.");
-    };
-  }, []);
+  // 📍 Lista de estados de México
+  const estados = [
+    "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua",
+    "Ciudad de México", "Coahuila", "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero",
+    "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla",
+    "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas",
+    "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas"
+  ];
 
   const handleSaveTrip = async () => {
-    console.log("handleSaveTrip: Botón Guardar Viaje presionado.");
-    console.log("handleSaveTrip: Estado actual del usuario:", user?.uid);
-    console.log("handleSaveTrip: Valor de 'name':", name);
-    console.log("handleSaveTrip: Valor de 'destination':", destination);
+    const user = auth.currentUser;
 
     if (!user) {
-      Alert.alert('Error', 'Debes iniciar sesión para agregar un viaje.');
-      console.log("handleSaveTrip: Error - Usuario no autenticado.");
+      Alert.alert("Error", "Debes iniciar sesión para guardar un viaje.");
+      router.replace("/login");
       return;
     }
 
-    if (name === '' || destination === '') {
-      Alert.alert('Error', 'Por favor, completa todos los campos.');
-      console.log("handleSaveTrip: Error - Campos incompletos.");
+    if (!origen || !destino || !empresa) {
+      Alert.alert("Campos incompletos", "Por favor, llena todos los campos.");
       return;
     }
 
     try {
-      const tripsCollection = collection(db, 'viajes');
-      console.log("handleSaveTrip: Intentando guardar en Firestore...");
-      console.log("handleSaveTrip: DB conectado:", db); // Solo para verificar si db no es null/undefined
-
-      await addDoc(tripsCollection, {
-        name,
-        destination,
-        createdAt: serverTimestamp(),
+      await addDoc(collection(db, "viajes"), {
+        origen,
+        destino,
+        empresa,
         userId: user.uid,
+        creadoEn: serverTimestamp(),
       });
 
-      Alert.alert('Éxito', 'Viaje guardado correctamente.');
-      console.log("handleSaveTrip: Viaje guardado con éxito. Navegando hacia atrás.");
+      Alert.alert("Éxito", "Viaje guardado correctamente.");
       router.back();
-    } catch (error: any) { // Usar 'any' para el tipo de error si no sabes la estructura exacta
-      console.error("handleSaveTrip: Error al guardar el viaje: ", error);
-      Alert.alert('Error', `No se pudo guardar el viaje: ${error.message || 'Error desconocido'}`); // Mensaje de error más específico
+    } catch (error) {
+      console.error("Error al guardar viaje:", error);
+      Alert.alert("Error", "No se pudo guardar el viaje.");
     }
   };
 
-  const isDarkMode = colorScheme === 'dark';
-  const containerBackgroundColor = isDarkMode ? '#1a1a1aff' : '#fcfcfcff';
-  const inputBorderColor = isDarkMode ? '#666666' : 'gray';
-  const inputTextColor = isDarkMode ? '#ffffff' : '#000000';
-  const inputPlaceholderColor = isDarkMode ? '#aaaaaa' : 'gray';
-
   return (
-    <View style={[styles.container, { backgroundColor: containerBackgroundColor }]}>
-      <ThemedText
-        style={[styles.title, { color: inputTextColor }]}
-        type="title">Agregar Nuevo Viaje</ThemedText>
+    <View style={styles.container}>
+      <Text style={styles.label}>Origen</Text>
+      <Picker
+        selectedValue={origen}
+        onValueChange={setOrigen}
+        style={styles.picker}
+      >
+        <Picker.Item label="Selecciona el estado de origen" value="" />
+        {estados.map((estado) => (
+          <Picker.Item key={estado} label={estado} value={estado} />
+        ))}
+      </Picker>
 
+      <Text style={styles.label}>Destino</Text>
+      <Picker
+        selectedValue={destino}
+        onValueChange={setDestino}
+        style={styles.picker}
+      >
+        <Picker.Item label="Selecciona el estado de destino" value="" />
+        {estados.map((estado) => (
+          <Picker.Item key={estado} label={estado} value={estado} />
+        ))}
+      </Picker>
+
+      <Text style={styles.label}>Empresa</Text>
       <TextInput
-        style={[styles.input, { borderColor: inputBorderColor, color: inputTextColor }]}
-        placeholder="Nombre del viaje (ej. Entrega a Cliente)"
-        placeholderTextColor={inputPlaceholderColor}
-        value={name}
-        onChangeText={setName}
+        style={styles.input}
+        placeholder="Escribe el nombre de la empresa"
+        value={empresa}
+        onChangeText={setEmpresa}
       />
 
-      <TextInput
-        style={[styles.input, { borderColor: inputBorderColor, color: inputTextColor }]}
-        placeholder="Destino (ej. Monterrey, NL)"
-        placeholderTextColor={inputPlaceholderColor}
-        value={destination}
-        onChangeText={setDestination}
-      />
-
-      <Button
-        title={loading ? "Cargando..." : "Guardar Viaje"}
-        onPress={handleSaveTrip}
-        disabled={loading} // Deshabilitar el botón mientras se carga el estado de autenticación
-        color={isDarkMode ? '#bb86fc' : '#007bff'}
-      />
+      <Button title="Guardar viaje" onPress={handleSaveTrip} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, // Cambiado de 6 a 1 para que ocupe todo el espacio vertical disponible
-    padding: 17,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  input: {
-    height: 44,
+  container: { flex: 1, padding: 16, justifyContent: "flex-start" },
+  label: { fontSize: 15, fontWeight: "bold", marginBottom: 1 },
+  picker: {
     borderWidth: 1,
+    borderColor: "#ccc",
     borderRadius: 8,
     marginBottom: 20,
-    paddingHorizontal: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
   },
 });
