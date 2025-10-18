@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
-
 import * as Yup from "yup";
 
 export default function Register() {

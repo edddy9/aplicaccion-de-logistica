@@ -13,7 +13,13 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { Picker } from "@react-native-picker/picker";
 import { db, auth } from "../../firebaseConfig";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDoc,
+  doc,
+} from "firebase/firestore";
 
 export default function AddGasto() {
   const { viajeId } = useLocalSearchParams(); // ID del viaje recibido por parámetro
@@ -64,13 +70,23 @@ export default function AddGasto() {
         console.warn("No se pudo obtener ubicación:", e);
       }
 
-      // 2️⃣ Guardar en Firestore
+      // 2️⃣ Obtener empresa desde el viaje
+      const viajeRef = doc(db, "viajes", String(viajeId));
+      const viajeSnap = await getDoc(viajeRef);
+      let empresa = "Sin empresa";
+
+      if (viajeSnap.exists()) {
+        empresa = viajeSnap.data().empresa || "Sin empresa";
+      }
+
+      // 3️⃣ Guardar gasto con empresa incluida
       await addDoc(collection(db, "gastos"), {
         viajeId: String(viajeId),
         userId: user.uid,
         categoria,
         monto: parseFloat(monto),
         geo: coords,
+        empresa, // 👈 se agrega aquí
         estatus: "pendiente",
         creadoEn: serverTimestamp(),
       });
