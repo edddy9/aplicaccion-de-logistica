@@ -4,16 +4,24 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
   ActivityIndicator,
   Button,
   Pressable,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../firebaseConfig";
-import MapView, { Marker } from "react-native-maps"; // 👈 Importamos mapas
+import MapView, { Marker } from "react-native-maps";
 
 export default function TripDetail() {
   const { id } = useLocalSearchParams();
@@ -25,28 +33,67 @@ export default function TripDetail() {
   useEffect(() => {
     if (!id || typeof id !== "string") return;
 
-    // 🔹 Obtener detalles del viaje
+    let unsubscribeGastos: (() => void) | null = null;
+    let active = true;
+
     const fetchTrip = async () => {
       try {
         const docRef = doc(db, "viajes", id);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) setTrip({ id: docSnap.id, ...docSnap.data() });
+        if (docSnap.exists() && active) {
+          setTrip({ id: docSnap.id, ...docSnap.data() });
+        }
       } catch (error) {
         console.error("Error al cargar viaje:", error);
       }
     };
 
-    // 🔹 Escuchar gastos relacionados
+    // Escucha en tiempo real los gastos del viaje
     const q = query(collection(db, "gastos"), where("viajeId", "==", String(id)));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    unsubscribeGastos = onSnapshot(q, (snapshot) => {
+      if (!active) return;
       const lista = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setGastos(lista);
       setLoading(false);
     });
 
     fetchTrip();
-    return () => unsubscribe();
+
+    // 🔹 Limpieza total para evitar cierres
+    return () => {
+      active = false;
+      if (unsubscribeGastos) unsubscribeGastos();
+      setTrip(null);
+      setGastos([]);
+    };
   }, [id]);
+
+  const finalizarViaje = async () => {
+    if (!trip) return;
+
+    Alert.alert("Confirmar", "¿Deseas marcar este viaje como finalizado?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Finalizar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const viajeRef = doc(db, "viajes", trip.id);
+            await updateDoc(viajeRef, {
+              estado: "finalizado",
+              finalizadoEn: new Date(),
+            });
+            Alert.alert("✅ Viaje finalizado", "El viaje se ha marcado como finalizado.");
+            const updatedDoc = await getDoc(viajeRef);
+            setTrip({ id: viajeRef.id, ...updatedDoc.data() });
+          } catch (error) {
+            console.error("Error al finalizar viaje:", error);
+            Alert.alert("Error", "No se pudo finalizar el viaje.");
+          }
+        },
+      },
+    ]);
+  };
 
   if (loading) {
     return (
@@ -57,12 +104,16 @@ export default function TripDetail() {
     );
   }
 
-  // 📍 Calcular centro del mapa
+  // 🔹 Asegurar valores válidos para el mapa
+  const validGastos = gastos.filter(
+    (g) => g.geo?.lat && g.geo?.lng && !isNaN(g.geo.lat) && !isNaN(g.geo.lng)
+  );
+
   const defaultRegion =
-    gastos.length > 0
+    validGastos.length > 0
       ? {
-          latitude: gastos[0].geo?.lat || 19.4326, // Ciudad de México por defecto
-          longitude: gastos[0].geo?.lng || -99.1332,
+          latitude: validGastos[0].geo.lat,
+          longitude: validGastos[0].geo.lng,
           latitudeDelta: 0.3,
           longitudeDelta: 0.3,
         }
@@ -84,32 +135,45 @@ export default function TripDetail() {
       <Text style={styles.label}>
         Fecha: {trip?.creadoEn?.toDate?.().toLocaleString("es-MX") ?? "Sin fecha"}
       </Text>
+      <Text style={styles.label}>
+        Estado:{" "}
+        <Text
+          style={{
+            color: trip?.estado === "finalizado" ? "green" : "orange",
+            fontWeight: "bold",
+          }}
+        >
+          {trip?.estado ?? "Desconocido"}
+        </Text>
+      </Text>
 
-      {/* 📍 Mapa con todos los gastos */}
-      {gastos.length > 0 && (
+      {trip?.estado === "en curso" && (
+        <View style={{ marginVertical: 10 }}>
+          <Button title="Finalizar viaje" color="#007bff" onPress={finalizarViaje} />
+        </View>
+      )}
+
+      {validGastos.length > 0 && (
         <View style={styles.mapContainer}>
           <Text style={styles.subtitle}>Ubicaciones de gastos</Text>
           <MapView style={styles.map} initialRegion={defaultRegion}>
-            {gastos.map((gasto) =>
-              gasto.geo?.lat && gasto.geo?.lng ? (
-                <Marker
-                  key={gasto.id}
-                  coordinate={{
-                    latitude: gasto.geo.lat,
-                    longitude: gasto.geo.lng,
-                  }}
-                  title={gasto.categoria}
-                  description={`$${gasto.monto?.toFixed(2)} - ${
-                    gasto.creadoEn?.toDate?.().toLocaleDateString("es-MX") ?? ""
-                  }`}
-                />
-              ) : null
-            )}
+            {validGastos.map((gasto) => (
+              <Marker
+                key={gasto.id}
+                coordinate={{
+                  latitude: gasto.geo.lat,
+                  longitude: gasto.geo.lng,
+                }}
+                title={gasto.categoria}
+                description={`$${Number(gasto.monto || 0).toFixed(2)} - ${
+                  gasto.creadoEn?.toDate?.().toLocaleDateString("es-MX") ?? ""
+                }`}
+              />
+            ))}
           </MapView>
         </View>
       )}
 
-      {/* Botón para agregar gasto */}
       <View style={{ marginVertical: 10 }}>
         <Button
           title="Agregar Gasto"
@@ -117,23 +181,24 @@ export default function TripDetail() {
         />
       </View>
 
-      {/* Lista de gastos */}
       <Text style={styles.subtitle}>Gastos registrados</Text>
 
-      {gastos.length === 0 ? (
+      {validGastos.length === 0 ? (
         <Text style={styles.emptyText}>Aún no hay gastos registrados para este viaje.</Text>
       ) : (
         <FlatList
-          data={gastos}
+          data={validGastos}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push({ pathname: "/gastos/[id]", params: { id: item.id } })}
+              onPress={() =>
+                router.push({ pathname: "/gastos/[id]", params: { id: item.id } })
+              }
               style={styles.gastoCard}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.gastoCat}>{item.categoria}</Text>
-                <Text style={styles.gastoMonto}>${item.monto?.toFixed(2)}</Text>
+                <Text style={styles.gastoMonto}>${Number(item.monto || 0).toFixed(2)}</Text>
                 <Text style={styles.gastoFecha}>
                   {item.creadoEn?.toDate?.().toLocaleString("es-MX") ?? "Sin fecha"}
                 </Text>

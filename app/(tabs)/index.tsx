@@ -7,18 +7,11 @@ import {
   Pressable,
   ActivityIndicator,
   Button,
-  TouchableOpacity,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { auth, db } from "../../firebaseConfig";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import {
-  collection,
-  onSnapshot,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
 
 export default function TripsList() {
   const [trips, setTrips] = useState<any[]>([]);
@@ -26,51 +19,58 @@ export default function TripsList() {
   const router = useRouter();
 
   useEffect(() => {
+    let unsubscribeTrips: (() => void) | null = null;
+    let active = true;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        const q = query(collection(db, "viajes"), where("userId", "==", user.uid));
+      if (!user) {
+        setTrips([]);
+        setLoading(false);
+        return;
+      }
 
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-          const viajes = [];
+      const q = query(collection(db, "viajes"), where("userId", "==", user.uid));
 
-          for (const docSnap of snapshot.docs) {
-            const viaje = { id: docSnap.id, ...docSnap.data() };
+      unsubscribeTrips = onSnapshot(q, async (snapshot) => {
+        if (!active) return;
+        const viajes: any[] = [];
 
+        for (const docSnap of snapshot.docs) {
+          const viaje = { id: docSnap.id, total: 0, ...docSnap.data() }; // 🔹 total por defecto
+
+          try {
             // 🔹 Calcular total de gastos
-            const gastosQuery = query(
-              collection(db, "gastos"),
-              where("viajeId", "==", docSnap.id)
+            const gastosSnapshot = await getDocs(
+              query(collection(db, "gastos"), where("viajeId", "==", docSnap.id))
             );
-            const gastosSnapshot = await getDocs(gastosQuery);
             const total = gastosSnapshot.docs.reduce(
               (sum, g) => sum + (g.data().monto || 0),
               0
             );
-
-            viajes.push({ ...viaje, total });
+            viaje.total = total;
+          } catch (error) {
+            console.warn("Error al calcular total:", error);
           }
 
-          setTrips(viajes);
-          setLoading(false);
-        });
+          viajes.push(viaje);
+        }
 
-        return () => unsubscribe();
-      } else {
-        setTrips([]);
+        setTrips(viajes);
         setLoading(false);
-      }
+      });
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      active = false;
+      if (unsubscribeTrips) unsubscribeTrips();
+      unsubscribeAuth();
+    };
   }, []);
-
-  // 🔹 Cerrar sesión
- 
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#007bff" />
         <Text>Cargando viajes...</Text>
       </View>
     );
@@ -78,12 +78,6 @@ export default function TripsList() {
 
   return (
     <View style={styles.container}>
-      {/* 🔹 Encabezado superior con Logout */}
-      <View style={styles.header}>
-        
-        
-      </View>
-
       {trips.length === 0 ? (
         <Text style={styles.emptyText}>No tienes viajes registrados.</Text>
       ) : (
@@ -93,27 +87,29 @@ export default function TripsList() {
           renderItem={({ item }) => (
             <Pressable
               style={styles.tripCard}
-              onPress={() =>
-                router.push({ pathname: "/trips/[id]", params: { id: item.id } })
-              }
+              onPress={() => router.push(`/trips/${item.id}`)}
             >
               <Text style={styles.tripTitle}>
                 {item.origen} → {item.destino}
               </Text>
-              <Text style={styles.tripLabel}>Empresa: {item.empresa ?? "N/A"}</Text>
+              <Text style={styles.tripLabel}>
+                Empresa: {item.empresa ?? "N/A"}
+              </Text>
               <Text style={styles.tripLabel}>
                 Fecha:{" "}
-                {item.creadoEn?.toDate?.().toLocaleDateString("es-MX") ?? "Sin fecha"}
+                {item.creadoEn?.toDate?.().toLocaleDateString("es-MX") ??
+                  "Sin fecha"}
               </Text>
+
+              {/* ✅ Corrección segura para el total */}
               <Text style={styles.tripTotal}>
-                💰 Total: ${item.total?.toFixed(2) ?? "0.00"}
+                💰 Total: ${Number(item.total || 0).toFixed(2)}
               </Text>
             </Pressable>
           )}
         />
       )}
 
-      {/* 🔹 Botón para agregar viaje */}
       <View style={styles.addContainer}>
         <Button
           title="Agregar viaje"
@@ -127,24 +123,6 @@ export default function TripsList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f9f9f9" },
-
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  logoutText: {
-    color: "#d9534f",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-
   emptyText: {
     textAlign: "center",
     color: "gray",

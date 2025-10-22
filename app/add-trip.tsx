@@ -4,8 +4,7 @@ import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
 import { db, auth } from "../firebaseConfig";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import * as Font from 'expo-font';
-import { useFonts } from 'expo-font';
+
 export default function AddTripScreen() {
   const [origen, setOrigen] = useState("");
   const [destino, setDestino] = useState("");
@@ -36,11 +35,13 @@ export default function AddTripScreen() {
     }
 
     try {
+      // 👇 Aquí agregamos el campo "estado"
       await addDoc(collection(db, "viajes"), {
         origen,
         destino,
         empresa,
         userId: user.uid,
+        estado: "en curso",        // <--- Estado inicial del viaje
         creadoEn: serverTimestamp(),
       });
 

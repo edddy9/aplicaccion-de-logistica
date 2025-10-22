@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icono.png",
     "scheme": "sgtlogistica",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
       "package": "com.tuempresa.sgtlogistica",
