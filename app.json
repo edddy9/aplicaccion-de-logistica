@@ -35,18 +35,17 @@
       "expo-image-picker",
       "expo-font",
       [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/icono.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
-        }
-      ]
-    ],
+  "expo-splash-screen",
+  {
+    "image": "./assets/images/icono.png",
+    "imageWidth": 280,
+    "resizeMode": "contain",
+    "backgroundColor": "#ffffff",
+    "dark": {
+      "backgroundColor": "#ffffff"  
+    }
+  }
+]    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
@@ -56,10 +55,23 @@
       "checkAutomatically": "ON_LOAD"
     },
     "extra": {
-      "router": {},
+       "FIREBASE_API_KEY": "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI",
+  "FIREBASE_AUTH_DOMAIN": "sgt-logistica.firebaseapp.com",
+  "FIREBASE_PROJECT_ID": "sgt-logistica",
+  "FIREBASE_STORAGE_BUCKET": "sgt-logistica.appspot.com",
+  "FIREBASE_MESSAGING_SENDER_ID": "372545254861",
+  "FIREBASE_APP_ID": "1:372545254861:web:0243484eabfa73a8b38084"
+    , "router": {},
       "eas": {
         "projectId": "132ba11d-a390-4ec5-ad59-ac65a76c2764"
+
+
+        
       }
+      
     }
+  
   }
+
+  
 }

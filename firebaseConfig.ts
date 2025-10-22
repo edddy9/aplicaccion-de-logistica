@@ -1,25 +1,25 @@
-// firebaseConfig.js
+// firebaseConfig.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   initializeAuth,
-  getReactNativePersistence
-} from "firebase/auth";
+  getReactNativePersistence,
+} from "firebase/auth/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import Constants from "expo-constants";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI",
-  authDomain: "sgt-logistica.firebaseapp.com",
-  projectId: "sgt-logistica",
-  storageBucket: "sgt-logistica.appspot.com",
-  messagingSenderId: "372545254861",
-  appId: "1:372545254861:web:0243484eabfa73a8b38084",
+  apiKey: Constants.expoConfig?.extra?.FIREBASE_API_KEY,
+  authDomain: Constants.expoConfig?.extra?.FIREBASE_AUTH_DOMAIN,
+  projectId: Constants.expoConfig?.extra?.FIREBASE_PROJECT_ID,
+  storageBucket: Constants.expoConfig?.extra?.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: Constants.expoConfig?.extra?.FIREBASE_MESSAGING_SENDER_ID,
+  appId: Constants.expoConfig?.extra?.FIREBASE_APP_ID,
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// ✅ Persistencia de sesión con AsyncStorage
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
