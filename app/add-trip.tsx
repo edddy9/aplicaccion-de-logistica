@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { View, Button, Alert, StyleSheet, Text, TextInput } from "react-native";
-import { useRouter } from "expo-router";
 import { Picker } from "@react-native-picker/picker";
-import { db, auth } from "../firebaseConfig";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useRouter } from "expo-router";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import React, { useState } from "react";
+import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
+import { auth, db } from "../firebaseConfig";
 
 export default function AddTripScreen() {
   const [origen, setOrigen] = useState("");
@@ -11,7 +11,7 @@ export default function AddTripScreen() {
   const [empresa, setEmpresa] = useState("");
   const router = useRouter();
 
-  // 📍 Lista de estados de México
+  //📍 Lista de estados de México
   const estados = [
     "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua",
     "Ciudad de México", "Coahuila", "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero",
@@ -25,7 +25,6 @@ export default function AddTripScreen() {
 
     if (!user) {
       Alert.alert("Error", "Debes iniciar sesión para guardar un viaje.");
-      router.replace("/login");
       return;
     }
 
@@ -35,23 +34,28 @@ export default function AddTripScreen() {
     }
 
     try {
-      // 👇 Aquí agregamos el campo "estado"
-      await addDoc(collection(db, "viajes"), {
-        origen,
-        destino,
-        empresa,
-        userId: user.uid,
-        estado: "en curso",        // <--- Estado inicial del viaje
-        creadoEn: serverTimestamp(),
-      });
+  await addDoc(collection(db, "viajes"), {
+    origen,
+    destino,
+    empresa,
+    userId: user.uid,
+    estado: "en curso",
+    creadoEn: serverTimestamp(),
+  });
 
-      Alert.alert("Éxito", "Viaje guardado correctamente.");
-      router.back();
-    } catch (error) {
-      console.error("Error al guardar viaje:", error);
-      Alert.alert("Error", "No se pudo guardar el viaje.");
-    }
-  };
+  Alert.alert("Éxito", "Viaje guardado correctamente.");
+
+  // 👇 Espera 1 segundo antes de navegar (evita el cierre en Android)
+  setTimeout(() => {
+    router.push("../trips");
+  }, 1000);
+
+} catch (error) {
+  console.error("Error al guardar viaje:", error);
+  Alert.alert("Error", "No se pudo guardar el viaje.");
+}
+
+     };
 
   return (
     <View style={styles.container}>
@@ -78,7 +82,6 @@ export default function AddTripScreen() {
           <Picker.Item key={estado} label={estado} value={estado} />
         ))}
       </Picker>
-
       <Text style={styles.label}>Empresa</Text>
       <TextInput
         style={styles.input}
@@ -86,7 +89,6 @@ export default function AddTripScreen() {
         value={empresa}
         onChangeText={setEmpresa}
       />
-
       <Button title="Guardar viaje" onPress={handleSaveTrip} />
     </View>
   );

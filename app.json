@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "G-Logistica",
+    "name": "G-Logística",
     "slug": "SGT-Logistica",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,70 +8,71 @@
     "scheme": "sgtlogistica",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "android": {
-      "package": "com.tuempresa.sgtlogistica",
-      "versionCode": 1,
-      "permissions": [
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.INTERNET",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
-      ],
+      "package": "com.genesis.glogistica",
+      "versionCode": 2,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/ico.png"
+        "foregroundImage": "./assets/images/icono.png",
+        "backgroundColor": "#E6F4FE"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "RECORD_AUDIO"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI"
+        }
+      }
     },
+
     "plugins": [
       "expo-router",
       "expo-location",
       "expo-image-picker",
       "expo-font",
       [
-  "expo-splash-screen",
-  {
-    "image": "./assets/images/icono.png",
-    "imageWidth": 280,
-    "resizeMode": "contain",
-    "backgroundColor": "#ffffff",
-    "dark": {
-      "backgroundColor": "#ffffff"  
-    }
-  }
-]    ],
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icono.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#E6F4FE",
+          "dark": {
+            "backgroundColor": "#E6F4FE"
+          }
+        }
+      ]
+    ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
+
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD"
     },
+
     "extra": {
-       "FIREBASE_API_KEY": "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI",
-  "FIREBASE_AUTH_DOMAIN": "sgt-logistica.firebaseapp.com",
-  "FIREBASE_PROJECT_ID": "sgt-logistica",
-  "FIREBASE_STORAGE_BUCKET": "sgt-logistica.appspot.com",
-  "FIREBASE_MESSAGING_SENDER_ID": "372545254861",
-  "FIREBASE_APP_ID": "1:372545254861:web:0243484eabfa73a8b38084"
-    , "router": {},
+      "FIREBASE_API_KEY": "AIzaSyAvhzkGwB7uyF7A6pLxnmkR5CmtnEyperI",
+      "FIREBASE_AUTH_DOMAIN": "sgt-logistica.firebaseapp.com",
+      "FIREBASE_PROJECT_ID": "sgt-logistica",
+      "FIREBASE_STORAGE_BUCKET": "sgt-logistica.appspot.com",
+      "FIREBASE_MESSAGING_SENDER_ID": "372545254861",
+      "FIREBASE_APP_ID": "1:372545254861:web:0243484eabfa73a8b38084",
+      "router": {},
       "eas": {
         "projectId": "132ba11d-a390-4ec5-ad59-ac65a76c2764"
-
-
-        
       }
-      
     }
-  
   }
-
-  
 }

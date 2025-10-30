@@ -1,8 +1,10 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// firebaseConfig.ts
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { getApp, getApps, initializeApp } from "firebase/app";
+import { getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import Constants from "expo-constants";
 
 const firebaseConfig = {
   apiKey: Constants.expoConfig?.extra?.FIREBASE_API_KEY,
@@ -13,10 +15,17 @@ const firebaseConfig = {
   appId: Constants.expoConfig?.extra?.FIREBASE_APP_ID,
 };
 
+// 🔹 Inicializa Firebase solo una vez
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const auth = getAuth(app);
+// 🔒 Persistencia nativa del login (usuario siempre logueado)
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
+// 🔹 Base de datos y almacenamiento
 const db = getFirestore(app);
 const storage = getStorage(app);
 
 export { app, auth, db, storage };
+
