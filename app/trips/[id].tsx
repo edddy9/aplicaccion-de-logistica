@@ -1,35 +1,55 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  Button,
-  Pressable,
-  Dimensions,
-  Alert,
-} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  collection,
   doc,
   getDoc,
-  collection,
-  query,
-  where,
+  initializeFirestore,
   onSnapshot,
+  persistentLocalCache,
+  query,
   updateDoc,
+  where,
 } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  Dimensions,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import { app } from "../../firebaseConfig";
+
+// 🧩 Firestore con caché persistente
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
 
 export default function TripDetail() {
   const { id } = useLocalSearchParams();
   const [trip, setTrip] = useState<any>(null);
   const [gastos, setGastos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const router = useRouter();
 
+  // 📶 Detectar conexión
+  useEffect(() => {
+    const unsubscribeNet = NetInfo.addEventListener((state) => {
+      setIsConnected(!!state.isConnected);
+    });
+    return () => unsubscribeNet();
+  }, []);
+
+  // 📦 Cargar viaje y gastos (modo online/offline)
   useEffect(() => {
     if (!id || typeof id !== "string") return;
 
@@ -42,24 +62,35 @@ export default function TripDetail() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && active) {
           setTrip({ id: docSnap.id, ...docSnap.data() });
+          await AsyncStorage.setItem(`trip_${id}`, JSON.stringify(docSnap.data()));
         }
       } catch (error) {
-        console.error("Error al cargar viaje:", error);
+        console.warn("Sin conexión. Cargando viaje local...");
+        const cachedTrip = await AsyncStorage.getItem(`trip_${id}`);
+        if (cachedTrip) setTrip(JSON.parse(cachedTrip));
       }
     };
 
-    // Escucha en tiempo real los gastos del viaje
     const q = query(collection(db, "gastos"), where("viajeId", "==", String(id)));
-    unsubscribeGastos = onSnapshot(q, (snapshot) => {
-      if (!active) return;
-      const lista = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setGastos(lista);
-      setLoading(false);
-    });
+    unsubscribeGastos = onSnapshot(
+      q,
+      async (snapshot) => {
+        if (!active) return;
+        const lista = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setGastos(lista);
+        setLoading(false);
+        await AsyncStorage.setItem(`gastos_${id}`, JSON.stringify(lista));
+      },
+      async () => {
+        console.warn("Sin conexión. Cargando gastos locales...");
+        const cached = await AsyncStorage.getItem(`gastos_${id}`);
+        if (cached) setGastos(JSON.parse(cached));
+        setLoading(false);
+      }
+    );
 
     fetchTrip();
 
-    // 🔹 Limpieza total para evitar cierres
     return () => {
       active = false;
       if (unsubscribeGastos) unsubscribeGastos();
@@ -68,16 +99,45 @@ export default function TripDetail() {
     };
   }, [id]);
 
+  // 🔁 Sincronizar cambios pendientes al volver conexión
+  useEffect(() => {
+    const syncPending = async () => {
+      if (isConnected && trip) {
+        const pending = await AsyncStorage.getItem(`pending_update_${trip.id}`);
+        if (pending) {
+          setSyncing(true);
+          const data = JSON.parse(pending);
+          await updateDoc(doc(db, "viajes", trip.id), data);
+          await AsyncStorage.removeItem(`pending_update_${trip.id}`);
+          setSyncing(false);
+          console.log("✅ Sincronización completada");
+        }
+      }
+    };
+    syncPending();
+  }, [isConnected, trip]);
+
+  // 🏁 Finalizar viaje (modo online/offline)
   const finalizarViaje = async () => {
     if (!trip) return;
-
     Alert.alert("Confirmar", "¿Deseas marcar este viaje como finalizado?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Finalizar",
-        style: "destructive",
         onPress: async () => {
           try {
+            if (!isConnected) {
+              await AsyncStorage.setItem(
+                `pending_update_${trip.id}`,
+                JSON.stringify({
+                  estado: "finalizado",
+                  finalizadoEn: new Date().toISOString(),
+                })
+              );
+              Alert.alert("Sin conexión", "El cambio se aplicará cuando vuelvas a estar en línea.");
+              return;
+            }
+
             const viajeRef = doc(db, "viajes", trip.id);
             await updateDoc(viajeRef, {
               estado: "finalizado",
@@ -104,7 +164,6 @@ export default function TripDetail() {
     );
   }
 
-  // 🔹 Asegurar valores válidos para el mapa
   const validGastos = gastos.filter(
     (g) => g.geo?.lat && g.geo?.lng && !isNaN(g.geo.lat) && !isNaN(g.geo.lng)
   );
@@ -126,6 +185,18 @@ export default function TripDetail() {
 
   return (
     <View style={styles.container}>
+      {!isConnected && (
+        <Text style={{ color: "red", textAlign: "center", marginBottom: 10 }}>
+          ⚠️ Estás sin conexión. Los cambios se sincronizarán automáticamente.
+        </Text>
+      )}
+
+      {syncing && (
+        <Text style={{ color: "green", textAlign: "center", marginBottom: 10 }}>
+          🔄 Sincronizando datos pendientes...
+        </Text>
+      )}
+
       <Text style={styles.title}>
         {trip?.origen} → {trip?.destino}
       </Text>

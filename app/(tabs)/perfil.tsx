@@ -1,19 +1,51 @@
 // app/(tabs)/perfil.tsx
-import React, { useEffect, useState } from "react";
-import { View, Text, Button, StyleSheet, Alert, ActivityIndicator } from "react-native";
-import { auth, db } from "../../firebaseConfig";
-import { signOut, sendPasswordResetEmail } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import { useRouter } from "expo-router";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { onAuthStateChanged, sendPasswordResetEmail, signOut } from "firebase/auth";
+import {
+  collection,
+  getDocs,
+  initializeFirestore,
+  persistentLocalCache,
+  query,
+  where,
+} from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from "react-native";
+import { app, auth } from "../../firebaseConfig";
+
+// 🧩 Firestore con caché persistente
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(),
+});
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const user = auth.currentUser;
+  const [user, setUser] = useState<any>(auth.currentUser);
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [telefono, setTelefono] = useState("");
   const [rol, setRol] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(true);
+
+  useEffect(() => {
+    // 🔹 Detectar conexión
+    const unsubscribeNet = NetInfo.addEventListener((state) => {
+      setIsConnected(!!state.isConnected);
+    });
+
+    // 🔹 Detectar usuario activo
+    const unsubscribeAuth = onAuthStateChanged(auth, (usr) => {
+      setUser(usr);
+    });
+
+    return () => {
+      unsubscribeNet();
+      unsubscribeAuth();
+    };
+  }, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -21,15 +53,27 @@ export default function PerfilScreen() {
       try {
         const q = query(collection(db, "usuarios"), where("uid", "==", user.uid));
         const snapshot = await getDocs(q);
+
         if (!snapshot.empty) {
           const data = snapshot.docs[0].data();
           setNombre(data.nombre || "");
           setApellido(data.apellido || "");
           setTelefono(data.telefono || "");
           setRol(data.rol || "Transportista");
+
+          // 💾 Guardar copia local
+          await AsyncStorage.setItem("perfil_cache", JSON.stringify(data));
         }
       } catch (error) {
-        console.error("Error al cargar datos:", error);
+        console.warn("⚠️ No se pudo cargar desde Firestore. Cargando copia local...");
+        const cached = await AsyncStorage.getItem("perfil_cache");
+        if (cached) {
+          const data = JSON.parse(cached);
+          setNombre(data.nombre || "");
+          setApellido(data.apellido || "");
+          setTelefono(data.telefono || "");
+          setRol(data.rol || "Transportista");
+        }
       } finally {
         setLoading(false);
       }
@@ -41,12 +85,8 @@ export default function PerfilScreen() {
     if (!user?.email) return;
     try {
       await sendPasswordResetEmail(auth, user.email);
-      Alert.alert(
-        "📧 Correo enviado",
-        "Revisa tu bandeja de entrada para restablecer tu contraseña."
-      );
+      Alert.alert("📧 Correo enviado", "Revisa tu bandeja de entrada para restablecer tu contraseña.");
     } catch (error) {
-      console.error("Error al enviar correo:", error);
       Alert.alert("Error", "No se pudo enviar el correo de recuperación.");
     }
   };
@@ -55,8 +95,7 @@ export default function PerfilScreen() {
     try {
       await signOut(auth);
       router.replace("/login");
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
+    } catch {
       Alert.alert("Error", "No se pudo cerrar sesión.");
     }
   };
@@ -72,7 +111,14 @@ export default function PerfilScreen() {
 
   return (
     <View style={styles.container}>
+      {!isConnected && (
+        <Text style={{ color: "red", textAlign: "center", marginBottom: 10 }}>
+          ⚠️ Sin conexión — mostrando datos almacenados localmente.
+        </Text>
+      )}
+
       <Text style={styles.title}>👤 Mi Perfil</Text>
+
       {user ? (
         <>
           <Text style={styles.label}>Nombre completo:</Text>
