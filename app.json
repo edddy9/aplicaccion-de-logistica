@@ -7,7 +7,7 @@
     "icon": "./assets/images/icono.png",
     "scheme": "sgtlogistica",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
 
     "android": {
       "package": "com.genesis.glogistica",
@@ -16,15 +16,14 @@
         "foregroundImage": "./assets/images/icono.png",
         "backgroundColor": "#E6F4FE"
       },
-      
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "INTERNET",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
       ],
       "config": {
         "googleMaps": {
@@ -43,11 +42,9 @@
         {
           "image": "./assets/images/icono.png",
           "imageWidth": 280,
-          "resizeMode": "contain",
+          "resizeMode": "cover",
           "backgroundColor": "#E6F4FE",
-          "dark": {
-            "backgroundColor": "#E6F4FE"
-          }
+          "statusBar": "auto"
         }
       ]
     ],

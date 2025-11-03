@@ -1,9 +1,16 @@
 // app/_layout.tsx
-import { useEffect, useState } from "react";
-import { View, ActivityIndicator, Text, Button, StyleSheet, AppState } from "react-native";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { auth } from "../firebaseConfig";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { useEffect, useState } from "react";
+import {
+  Button,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
+import SplashScreen from "../components/SplashScreen"; // 👈 Pantalla de bienvenida
+import { auth } from "../firebaseConfig";
+import usePermissions from "../hooks/usePermissions";
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
@@ -12,21 +19,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  // 🔒 Cerrar sesión automáticamente al salir o minimizar la app
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", async (nextState) => {
-      if (nextState === "background" || nextState === "inactive") {
-        try {
-          await signOut(auth);
-          console.log("🔒 Sesión cerrada automáticamente por seguridad");
-        } catch (error) {
-          console.error("Error al cerrar sesión:", error);
-        }
-      }
-    });
-
-    return () => subscription.remove();
-  }, []);
+  const hasPermission = usePermissions(); // 📍 Permiso de ubicación
 
   // 🔐 Control de autenticación
   useEffect(() => {
@@ -36,12 +29,11 @@ export default function RootLayout() {
         setUser(currentUser);
         setLoading(false);
 
-        // Si hay usuario autenticado
+        // Si hay usuario logueado → entrar al tabs
         if (currentUser) {
-          // Si está en login o register → redirige al tabs principal
           if (isAuthRoute()) router.replace("/(tabs)");
         } else {
-          // Si no hay usuario y no está en login/register → redirige al login
+          // Si no hay sesión → redirigir a login
           if (!isAuthRoute()) router.replace("/login");
         }
       },
@@ -52,27 +44,21 @@ export default function RootLayout() {
         if (!isAuthRoute()) router.replace("/login");
       }
     );
-
     return () => unsubscribe();
   }, [segments]);
 
-  // Verifica si es login o registro
+  // ✅ Detecta si es ruta pública (login o registro)
   const isAuthRoute = () => {
     const route = segments[0];
     return route === "login" || route === "register";
   };
 
-  // 🌀 Pantalla de carga
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={{ marginTop: 10 }}>Verificando sesión...</Text>
-      </View>
-    );
+  // 🌀 Mostrar pantalla de bienvenida mientras carga sesión o permisos
+  if (loading || !hasPermission) {
+    return <SplashScreen />;
   }
 
-  // ⚠️ Pantalla de error si falla autenticación
+  // ⚠️ Pantalla de error
   if (error) {
     return (
       <View style={styles.center}>
@@ -88,7 +74,7 @@ export default function RootLayout() {
     );
   }
 
-  // ✅ Stack principal
+  // ✅ Stack principal (rutas)
   return (
     <Stack
       screenOptions={{
@@ -97,18 +83,16 @@ export default function RootLayout() {
         headerTitleAlign: "center",
       }}
     >
-      {/* Rutas públicas */}
+      {/* 🟢 Rutas públicas */}
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
 
-      {/* Rutas privadas */}
+      {/* 🔵 Rutas privadas */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="trips" options={{ headerShown: false }} />
-      <Stack.Screen name="gastos" options={{ headerShown: false }} /> 
-     
-      
-    
-      {/* Fuera del tabs */}
+      <Stack.Screen name="gastos" options={{ headerShown: false }} />
+
+      {/* 🟣 Modales */}
       <Stack.Screen
         name="add-trip"
         options={{ title: "Agregar viaje", presentation: "modal" }}
